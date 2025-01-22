@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/oracle/oci-go-sdk/v65/common/auth"
 	"log"
 	"os"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/monitoring"
 )
 
+// init initializes the environment by loading variables from the .env file. Logs a fatal error if loading fails.
 func init() {
 	// Load the environment variables from .env file
 	err := godotenv.Load()
@@ -22,6 +24,9 @@ func init() {
 	}
 }
 
+// GetDaysRemaining calculates the number of days remaining until the TLS certificate for the given endpoint expires.
+// endpoint specifies the target in the format "hostname:port".
+// Returns the number of days remaining and an error if the operation fails.
 func GetDaysRemaining(endpoint string) (int, error) {
 	parts := strings.Split(endpoint, ":")
 	if len(parts) != 2 {
@@ -48,18 +53,30 @@ func GetDaysRemaining(endpoint string) (int, error) {
 	return daysRemaining, nil
 }
 
+// createMonitoringClient initializes and returns an OCI MonitoringClient using the Resource Principal authentication method.
+// Returns a MonitoringClient instance and an error if the client creation or authentication configuration fails.
 func createMonitoringClient() (monitoring.MonitoringClient, error) {
-	provider := common.DefaultConfigProvider()
+	provider, err := auth.ResourcePrincipalConfigurationProvider()
+	if err != nil {
+		return monitoring.MonitoringClient{}, fmt.Errorf("failed to create Resource Principal configuration provider: %v", err)
+	}
+
 	client, err := monitoring.NewMonitoringClientWithConfigurationProvider(provider)
 	if err != nil {
 		return monitoring.MonitoringClient{}, fmt.Errorf("failed to create monitoring client: %v", err)
 	}
 
-	// Set the correct telemetry endpoint for your region
-	client.Host = "https://telemetry-ingestion.us-ashburn-1.oraclecloud.com"
 	return client, nil
 }
 
+// publishMetricData sends metric data to the OCI Monitoring service using the provided MonitoringClient instance.
+// client is the OCI MonitoringClient used to post the metric data.
+// namespace specifies the metric namespace to which the data belongs.
+// compartmentID identifies the OCI compartment where the metric resides.
+// metricName is the name of the metric being sent.
+// resourceID is a dimension key identifying the specific resource being monitored.
+// value is the actual value of the metric to be published.
+// Returns an error if the metric data fails to publish or if any metrics fail during the operation.
 func publishMetricData(client monitoring.MonitoringClient, namespace, compartmentID, metricName, resourceID string, value float64) error {
 	timestamp := common.SDKTime{Time: time.Now().UTC()}
 
