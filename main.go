@@ -4,12 +4,23 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/monitoring"
 )
+
+func init() {
+	// Load the environment variables from .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+}
 
 func GetDaysRemaining(endpoint string) (int, error) {
 	parts := strings.Split(endpoint, ":")
@@ -45,7 +56,7 @@ func createMonitoringClient() (monitoring.MonitoringClient, error) {
 	}
 
 	// Set the correct telemetry endpoint for your region
-	client.Host = "https://telemetry-ingestion.us-ashburn-1.oraclecloud.com" // Replace with your region's endpoint
+	client.Host = "https://telemetry-ingestion.us-ashburn-1.oraclecloud.com"
 	return client, nil
 }
 
@@ -85,11 +96,16 @@ func publishMetricData(client monitoring.MonitoringClient, namespace, compartmen
 }
 
 func main() {
-	endpoint := "oracle.com:443"                                                                       // Replace with your desired endpoint
-	compartmentID := "ocid1.tenancy.oc1..aaaaaaaaw7h6wpctybsgxgdngh64646ytsxr3zsjxoyie6nknexp72nmvmta" // Replace with your Compartment OCID
-	namespace := "certificate_expiration_monitoring"                                                   // Replace with your Monitoring Namespace
-	metricName := "CertificateExpiryDays"
-	resourceID := endpoint
+	// Load values from environment variables
+	endpoint := os.Getenv("ENDPOINT")
+	compartmentID := os.Getenv("COMPARTMENT_ID")
+	namespace := os.Getenv("NAMESPACE")
+	metricName := os.Getenv("METRIC_NAME")
+	resourceID := endpoint // Can also be overridden from env if required
+
+	if endpoint == "" || compartmentID == "" || namespace == "" || metricName == "" {
+		log.Fatalf("One or more required environment variables are missing")
+	}
 
 	daysRemaining, err := GetDaysRemaining(endpoint)
 	if err != nil {
