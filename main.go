@@ -112,13 +112,36 @@ func publishMetricData(client monitoring.MonitoringClient, namespace, compartmen
 	return nil
 }
 
+func loadEnvWithDefaults() {
+	// Load the environment variables from .env file if it exists
+	_ = godotenv.Load()
+
+	// Set default values if environment variables are not present
+	setDefaultEnv("ENDPOINT", "oracle.com:443")
+	setDefaultEnv("COMPARTMENT_ID", "ocid1.tenancy.oc1..aaaaaaaaw7h6wpctybsgxgdngh64646ytsxr3zsjxoyie6nknexp72nmvmta")
+	setDefaultEnv("NAMESPACE", "certificate_expiration_monitoring")
+	setDefaultEnv("METRIC_NAME", "CertificateExpiryDays")
+}
+
+func setDefaultEnv(key, defaultValue string) {
+	if os.Getenv(key) == "" {
+		log.Printf("Environment variable %s not found, using default: %s", key, defaultValue)
+		os.Setenv(key, defaultValue)
+	}
+}
+
 func main() {
-	// Load values from environment variables
+	// Load environment variables with fallback defaults
+	loadEnvWithDefaults()
+
+	// Assign environment variables to variables
 	endpoint := os.Getenv("ENDPOINT")
 	compartmentID := os.Getenv("COMPARTMENT_ID")
 	namespace := os.Getenv("NAMESPACE")
 	metricName := os.Getenv("METRIC_NAME")
-	resourceID := endpoint // Can also be overridden from env if required
+	resourceID := endpoint // Can also be overridden if required
+
+	log.Printf("Using configuration - ENDPOINT: %s, COMPARTMENT_ID: %s, NAMESPACE: %s, METRIC_NAME: %s", endpoint, compartmentID, namespace, metricName)
 
 	if endpoint == "" || compartmentID == "" || namespace == "" || metricName == "" {
 		log.Fatalf("One or more required environment variables are missing")
