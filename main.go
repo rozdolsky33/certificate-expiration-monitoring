@@ -53,8 +53,8 @@ func GetDaysRemaining(endpoint string) (int, error) {
 	return daysRemaining, nil
 }
 
-// createMonitoringClient initializes and returns an OCI MonitoringClient using the Resource Principal authentication method.
-// Returns a MonitoringClient instance and an error if the client creation or authentication configuration fails.
+// createMonitoringClient initializes and returns an OCI MonitoringClient using a Resource Principal configuration provider.
+// Returns an error if the Resource Principal or MonitoringClient creation fails.
 func createMonitoringClient() (monitoring.MonitoringClient, error) {
 	provider, err := auth.ResourcePrincipalConfigurationProvider()
 	if err != nil {
