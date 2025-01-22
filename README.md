@@ -6,51 +6,59 @@ This document provides instructions to set up and run the `Certificate Expiratio
 
 1. **OCI Tenancy**: Access to an Oracle Cloud Infrastructure tenancy with appropriate permissions.
 2. **Dynamic Group Setup**:
-   - Create a dynamic group to include your instance or application:
-     ```text
-     ANY {instance.compartment.id = '<ocid1.tenancy.oc1..>'}
-     ```
+    - Create a dynamic group to include your instance or application:
+      ```text
+      ANY {instance.compartment.id = '<ocid1.tenancy.oc1..>'}
+      ```
 
 3. **IAM Policies**:
-   - Add the following policies to enable your dynamic group (`cert_monitor_group`) to access the necessary resources:
-     ```text
-     Allow dynamic-group cert_monitor_group to use metrics in tenancy where target.metrics.namespace=certificate_expiration_monitoring
-     Allow dynamic-group cert_monitor_group to read metrics in tenancy
-     Allow dynamic-group cert_monitor_group to manage alarms in tenancy
-     Allow dynamic-group cert_monitor_group to manage ons-topics in tenancy
-     Allow dynamic-group cert_monitor_group to use streams in tenancy
-     ```
+    - Add the following policies to enable your dynamic group (`cert_monitor_group`) to access the necessary resources:
+      ```text
+      Allow dynamic-group cert_monitor_group to use metrics in tenancy where target.metrics.namespace=certificate_expiration_monitoring
+      Allow dynamic-group cert_monitor_group to read metrics in tenancy
+      Allow dynamic-group cert_monitor_group to manage alarms in tenancy
+      Allow dynamic-group cert_monitor_group to manage ons-topics in tenancy
+      Allow dynamic-group cert_monitor_group to use streams in tenancy
+      ```
 
 4. **OCI SDK Configuration**:
-   - Ensure your OCI CLI or SDK configuration file is properly set up. The configuration file typically resides at `~/.oci/config`.
+    - Ensure your OCI CLI or SDK configuration file is properly set up. The configuration file typically resides at `~/.oci/config`.
 
 5. **Environment Variables**:
-   - Create a `.env` file in the project root directory and populate it with the following variables:
-     ```env
-     ENDPOINT=<your_endpoint> # e.g., oracle.com:443
-     COMPARTMENT_ID=<your_compartment_id>
-     NAMESPACE=certificate_expiration_monitoring
-     METRIC_NAME=CertificateExpiryDays
-     ```
+    - Create a `.env` file in the project root directory and populate it with the following variables:
+      ```env
+      ENDPOINT=<your_endpoint> # e.g., oracle.com:443
+      COMPARTMENT_ID=<your_compartment_id>
+      NAMESPACE=certificate_expiration_monitoring
+      METRIC_NAME=CertificateExpiryDays
+      ```
 
-## Building and Running the Application
+## Recent Updates
+
+The following features have been added:
+
+- **Certificate Expiry Check**: The `GetDaysRemaining` function calculates the SSL certificate expiry days for a given endpoint in the format `<hostname>:<port>`. It directly connects to the endpoint, retrieves the certificate, and computes the remaining days.
+- **OCI Monitoring Integration**: The `createMonitoringClient` function initializes a monitoring client using OCI's `ResourcePrincipalConfigurationProvider`.
+- **Automatic Metric Publishing**: The `publishMetricData` function now publishes metrics directly to the OCI Monitoring service, with specific dimensions like `resourceId`.
+
+## Setting Up the Application
 
 ### Local Setup
 
-1. **Clone the Repository** (if applicable):
+1. **Clone the Repository**:
    ```bash
    git clone <repository_url>
    cd <repository_directory>
    ```
 
 2. **Set Up Go Environment**:
-   - Ensure you have Go installed and set up on your system.
-   - Run the application locally:
-     ```bash
-     go run main.go
-     ```
+    - Ensure you have Go 1.23 or later installed.
+    - Run the application locally:
+      ```bash
+      go run main.go
+      ```
 
-### Build Docker Image
+### Run with Docker
 
 1. **Build the Docker Image**:
    ```bash
@@ -64,42 +72,57 @@ This document provides instructions to set up and run the `Certificate Expiratio
 
 ### Environment Variables
 
-- Ensure the `.env` file is included in the same directory as the application, as it is loaded automatically at runtime.
-- Key variables include:
-   - `ENDPOINT`: The endpoint to check.
-   - `COMPARTMENT_ID`: OCI Compartment OCID.
-   - `NAMESPACE`: Monitoring namespace.
-   - `METRIC_NAME`: Name of the metric to publish.
+- Ensure a `.env` file is included in the application directory. This file gets automatically loaded during runtime.
+- Key variables required:
+    - `ENDPOINT`: The endpoint to check, e.g., `hostname:443`.
+    - `COMPARTMENT_ID`: OCI Compartment OCID where metrics will be published.
+    - `NAMESPACE`: Target namespace for metrics.
+    - `METRIC_NAME`: Custom name for the monitored metric, default is `CertificateExpiryDays`.
 
-## Key Components of the Code
+## Code Workflow
 
-1. **Environment Variable Loading**:
-   - The `init` function loads environment variables from a `.env` file using the `godotenv` package.
+1. **Environment Variables Handling**:
+    - The application initializes by loading environment variables from the `.env` file using the `godotenv` package. Missing or invalid variables result in a fatal error.
 
 2. **Certificate Expiry Check**:
-   - The `GetDaysRemaining` function connects to the given endpoint and retrieves the SSL certificate, calculating the number of days remaining until expiration.
+    - The `GetDaysRemaining` function connects to the specified `endpoint` to retrieve the SSL certificate. It calculates and returns the number of days remaining until the certificate expires.
 
 3. **OCI Monitoring Client**:
-   - The `createMonitoringClient` function initializes the OCI Monitoring client using the default configuration provider.
+    - The `createMonitoringClient` function prepares the client based on the default resource principal configuration for metric publishing.
 
-4. **Publish Metric Data**:
-   - The `publishMetricData` function sends the calculated certificate expiry days to OCI Monitoring with a specific namespace and metric name.
+4. **Publishing Metrics**:
+    - The `publishMetricData` function takes the calculated expiry days and ensures they are published to the specified namespace in OCI Monitoring. If any posting errors occur, the function returns detailed error logs.
 
-## OCI Resources
+## Expected Metric Details in OCI
 
-1. **Monitoring Namespace**: `certificate_expiration_monitoring`
-2. **Metric Name**: `CertificateExpiryDays`
-3. **Dimensions**: Includes `resourceId`, which identifies the monitored resource (e.g., endpoint).
+- **Metric Name**: `CertificateExpiryDays`
+- **Namespace**: `certificate_expiration_monitoring`
+- **Dimension**:
+    - **Key**: `resourceId` (to identify the specific endpoint).
 
-## Debugging and Logging
+## Debugging
 
-- Check logs from the application for detailed error messages if any part of the setup or execution fails.
-- Ensure that your OCI policies and dynamic group configurations are correctly applied and propagated.
+- Common issues might be related to:
+    - Incorrect endpoint format (ensure `hostname:port` format)
+    - Missing or incorrect `.env` variables
+    - OCI policies not properly configured or propagated
+    - Resource principal misconfiguration for hosted environments
 
-## Example
+- Check application logs to locate pinpointed errors. Enable verbose logging or debug mode if applicable.
 
-- For an endpoint `oracle.com:443`, the tool retrieves the certificate expiry days, publishes the metric, and displays the following message upon success:
-  ```text
-  Successfully published metric 'CertificateExpiryDays' with value: 50
-  ```
+## Example Execution
 
+When executed successfully, the application will:
+1. Retrieve the SSL certificate expiry days for a given endpoint.
+2. Publish a metric (e.g., `CertificateExpiryDays`) to OCI Monitoring.
+
+Example success message:
+```text
+Successfully published metric 'CertificateExpiryDays' with value: 50
+```
+This indicates that the tool has successfully determined that the monitored endpoint certificate expires in 50 days, and the data is now available on the OCI Monitoring dashboard.
+
+## Additional Notes
+
+- Be cautious while enabling `InsecureSkipVerify` in TLS configuration for development.
+- Ensure your policies and OCI configurations are secure and valid before deploying the tool in any production-grade environment.
