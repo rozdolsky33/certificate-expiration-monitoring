@@ -6,19 +6,19 @@ This document provides instructions to set up and run the `Certificate Expiratio
 
 1. **OCI Tenancy**: Access to an Oracle Cloud Infrastructure tenancy with appropriate permissions.
 2. **Dynamic Group Setup**:
-    - Create a dynamic group to include your instance or application:
+    - Create a dynamic group (`Cert-Monitoring-DG`) to include your instance or application:
       ```text
-      ANY {instance.compartment.id = '<ocid1.tenancy.oc1..>'}
+      ANY {resource.id = '<ocid1.fnfunc.oc1.iad.aaaaaaaa>'}
       ```
 
 3. **IAM Policies**:
-    - Add the following policies to enable your dynamic group (`cert_monitor_group`) to access the necessary resources:
+    - Add the following policies to enable your dynamic group (`Cert-Monitoring-DG`) to access the necessary resources:
       ```text
-      Allow dynamic-group cert_monitor_group to use metrics in tenancy where target.metrics.namespace=certificate_expiration_monitoring
-      Allow dynamic-group cert_monitor_group to read metrics in tenancy
-      Allow dynamic-group cert_monitor_group to manage alarms in tenancy
-      Allow dynamic-group cert_monitor_group to manage ons-topics in tenancy
-      Allow dynamic-group cert_monitor_group to use streams in tenancy
+      Allow dynamic-group Cert-Monitoring-DG to use metrics in tenancy where target.metrics.namespace=certificate_expiration_monitoring
+      Allow dynamic-group Cert-Monitoring-DG to read metrics in tenancy
+      Allow dynamic-group Cert-Monitoring-DG to manage alarms in tenancy
+      Allow dynamic-group Cert-Monitoring-DG to manage ons-topics in tenancy
+      Allow dynamic-group Cert-Monitoring-DG to use streams in tenancy
       ```
 
 4. **Resource Principal Example**:
@@ -26,14 +26,14 @@ This document provides instructions to set up and run the `Certificate Expiratio
 
    The example code in this directory can be assembled into an OCI Functions container. If that function is given the permissions to read (or use) resources in a tenancy, it may do so. As with all rights grants, this involves two steps:
 
-    - Construct a dynamic group whose membership includes the function, for example  `monitoring-func-dg`:
+    - Construct a dynamic group whose membership includes the function, for example  `MonitoringFunc-DG`:
       ```text
       ALL {resource.type = 'fnfunc', resource.compartment.id = '<ocid1.compartment1.id>'}
       ```
 
     - Add the rights to that dynamic group with a suitable policy, such as:
       ```text
-      allow dynamic-group monitoring-func-dg to manage all-resources in <example-compartment>
+      allow dynamic-group MonitoringFunc-DG to manage all-resources in <example-compartment>
       ```
 
    Once the dynamic group and policies are set, the function may then be deployed and invoked as usual.
