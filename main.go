@@ -45,12 +45,12 @@ func GetDaysRemaining(endpoint string) (int, error) {
 	return daysRemaining, nil
 }
 
-type Message struct {
-	Region       string   `json:"region"`
-	Tenancy      string   `json:"tenant"`
-	Compartment  string   `json:"compartment"`
-	Compartments []string `json:"compartments"`
-}
+//type Message struct {
+//	Region       string   `json:"region"`
+//	Tenancy      string   `json:"tenant"`
+//	Compartment  string   `json:"compartment"`
+//	Compartments []string `json:"compartments"`
+//}
 
 // createMonitoringClient initializes and returns an OCI MonitoringClient using a Resource Principal configuration provider.
 // Returns an error if the Resource Principal or MonitoringClient creation fails.
@@ -61,24 +61,29 @@ func createMonitoringClient() (monitoring.MonitoringClient, error) {
 		return monitoring.MonitoringClient{}, fmt.Errorf("failed to create Resource Principal provider: %v", err)
 	}
 
-	tenancy, _ := provider.TenancyOCID()
-	compartment, _ := provider.GetClaim(auth.CompartmentOCIDClaimKey)
-	region, _ := provider.Region()
+	//tenancy, _ := provider.TenancyOCID()
 
-	msg := Message{
-		Region:      region,
-		Tenancy:     tenancy,
-		Compartment: compartment.(string),
-	}
-
-	fmt.Printf("--> Tenancy Info %s", msg)
+	//region, _ := provider.Region()
+	//
+	//msg := Message{
+	//	Region:      region,
+	//	Tenancy:     tenancy,
+	//	Compartment: compartment.(string),
+	//}
+	//fmt.Printf("--> Tenancy Info %s", msg)
 
 	log.Printf("Using Resource Principal provider: %s", provider)
-
+	// Set custom TLS configuration
 	client, err := monitoring.NewMonitoringClientWithConfigurationProvider(provider)
 	if err != nil {
 		return monitoring.MonitoringClient{}, fmt.Errorf("failed to create monitoring client: %v", err)
 	}
+
+	// Set the correct Monitoring endpoint for your region
+	client.Host = "https://telemetry-ingestion.us-ashburn-1.oraclecloud.com"
+
+	log.Printf("Monitoring Client Host: %s", client.Host)
+	//log.Printf("Resource Principal Tenancy: %s", tenancy)
 
 	return client, nil
 }
