@@ -1,20 +1,17 @@
-FROM golang:1.23 AS builder
+# Build stage
+FROM golang:1.23 AS build
 
 WORKDIR /app
-
-COPY go.mod go.sum ./
-
-RUN go mod download
-
-COPY . ./
+COPY go.mod ./
+COPY . .
 
 RUN go build -o main .
 
-FROM debian:bullseye-slim
 
-COPY --from=builder /app/main /main
+FROM ubuntu:22.04
 
-RUN useradd -m appuser
-USER appuser
+RUN apt-get update && apt-get install -y libc6
 
-ENTRYPOINT ["/main"]
+COPY --from=build /app/main /
+
+CMD ["/main"]

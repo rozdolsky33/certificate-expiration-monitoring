@@ -15,15 +15,6 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/monitoring"
 )
 
-// init initializes the environment by loading variables from the .env file. Logs a fatal error if loading fails.
-func init() {
-	// Load the environment variables from .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
-}
-
 // GetDaysRemaining calculates the number of days remaining until the TLS certificate for the given endpoint expires.
 // endpoint specifies the target in the format "hostname:port".
 // Returns the number of days remaining and an error if the operation fails.
@@ -148,6 +139,7 @@ func main() {
 	}
 
 	daysRemaining, err := GetDaysRemaining(endpoint)
+	fmt.Printf("daysRemaining is %d\n", daysRemaining)
 	if err != nil {
 		fmt.Printf("Error calculating days remaining: %v\n", err)
 		return
