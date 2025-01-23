@@ -10,6 +10,11 @@ This document provides instructions to set up and run the `Certificate Expiratio
       ```text
       ANY {resource.id = '<ocid1.fnfunc.oc1.iad.aaaaaaaa>'}
       ```
+      or
+   
+      ```text
+      ALL {resource.type = 'fnfunc', compartment.id = '<compartment-ocid>'}
+      ```
 
 3. **IAM Policies**:
     - Add the following policies to enable your dynamic group (`Cert-Monitoring-DG`) to access the necessary resources:
@@ -20,6 +25,10 @@ This document provides instructions to set up and run the `Certificate Expiratio
       Allow dynamic-group Cert-Monitoring-DG to manage ons-topics in tenancy
       Allow dynamic-group Cert-Monitoring-DG to use streams in tenancy
       ```
+      or
+      ```txt
+       Allow dynamic-group <dynamic-group-name> to use metrics in compartment <compartment-name>
+      ```
 
 4. **Resource Principal Example**:
    Resource principals offer credentials tied to specific OCI resources. Code running in the context of those resources may be granted the rights to act "as the resource".
@@ -29,11 +38,15 @@ This document provides instructions to set up and run the `Certificate Expiratio
     - Construct a dynamic group whose membership includes the function, for example  `MonitoringFunc-DG`:
       ```text
       ALL {resource.type = 'fnfunc', resource.compartment.id = '<ocid1.compartment1.id>'}
+      
+      ALL {resource.type = 'fnfunc', compartment.id = '<compartment-ocid>'}
       ```
 
     - Add the rights to that dynamic group with a suitable policy, such as:
       ```text
       allow dynamic-group MonitoringFunc-DG to manage all-resources in <example-compartment>
+      
+      Allow dynamic-group <dynamic-group-name> to use metrics in compartment <compartment-name>
       ```
 
    Once the dynamic group and policies are set, the function may then be deployed and invoked as usual.
