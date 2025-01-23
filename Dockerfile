@@ -16,9 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the CA certificates location (if needed for OCI)
-ENV OCI_CACERT_FILE=/etc/ssl/certs/ca-certificates.crt
-
 COPY --from=build /app/main /
 
 CMD ["/main"]
