@@ -4,15 +4,16 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	fdk "github.com/fnproject/fdk-go"
+	"github.com/joho/godotenv"
+	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/common/auth"
+	"github.com/oracle/oci-go-sdk/v65/monitoring"
+	"io"
 	"log"
 	"os"
 	"strings"
 	"time"
-
-	"github.com/joho/godotenv"
-	"github.com/oracle/oci-go-sdk/v65/common"
-	"github.com/oracle/oci-go-sdk/v65/monitoring"
 )
 
 // GetDaysRemaining calculates the number of days remaining until the TLS certificate for the given endpoint expires.
@@ -44,13 +45,35 @@ func GetDaysRemaining(endpoint string) (int, error) {
 	return daysRemaining, nil
 }
 
+type Message struct {
+	Region       string   `json:"region"`
+	Tenancy      string   `json:"tenant"`
+	Compartment  string   `json:"compartment"`
+	Compartments []string `json:"compartments"`
+}
+
 // createMonitoringClient initializes and returns an OCI MonitoringClient using a Resource Principal configuration provider.
 // Returns an error if the Resource Principal or MonitoringClient creation fails.
 func createMonitoringClient() (monitoring.MonitoringClient, error) {
 	provider, err := auth.ResourcePrincipalConfigurationProvider()
 	if err != nil {
-		return monitoring.MonitoringClient{}, fmt.Errorf("failed to create Resource Principal configuration provider: %v", err)
+		log.Printf("Resource Principal provider error: %v", err)
+		return monitoring.MonitoringClient{}, fmt.Errorf("failed to create Resource Principal provider: %v", err)
 	}
+
+	tenancy, _ := provider.TenancyOCID()
+	compartment, _ := provider.GetClaim(auth.CompartmentOCIDClaimKey)
+	region, _ := provider.Region()
+
+	msg := Message{
+		Region:      region,
+		Tenancy:     tenancy,
+		Compartment: compartment.(string),
+	}
+
+	fmt.Printf("--> Tenancy Info %s", msg)
+
+	log.Printf("Using Resource Principal provider: %s", provider)
 
 	client, err := monitoring.NewMonitoringClientWithConfigurationProvider(provider)
 	if err != nil {
@@ -144,18 +167,21 @@ func main() {
 		fmt.Printf("Error calculating days remaining: %v\n", err)
 		return
 	}
+	fdk.Handle(fdk.HandlerFunc(func(ctx context.Context, in io.Reader, out io.Writer) {
+		client, err := createMonitoringClient()
+		if err != nil {
+			log.Printf("Error creating monitoring client: %v", err)
+			return
+		}
+		log.Printf("Monitoring client created successfully: %v", client)
 
-	client, err := createMonitoringClient()
-	if err != nil {
-		fmt.Printf("Error creating monitoring client: %v\n", err)
-		return
-	}
+		err = publishMetricData(client, namespace, compartmentID, metricName, resourceID, float64(daysRemaining))
+		if err != nil {
+			fmt.Printf("Error publishing metric data: %v\n", err)
+			return
+		}
 
-	err = publishMetricData(client, namespace, compartmentID, metricName, resourceID, float64(daysRemaining))
-	if err != nil {
-		fmt.Printf("Error publishing metric data: %v\n", err)
-		return
-	}
+		fmt.Printf("Successfully published metric '%s' with value: %d\n", metricName, daysRemaining)
 
-	fmt.Printf("Successfully published metric '%s' with value: %d\n", metricName, daysRemaining)
+	}))
 }
