@@ -26,14 +26,14 @@ This document provides instructions to set up and run the `Certificate Expiratio
 
    The example code in this directory can be assembled into an OCI Functions container. If that function is given the permissions to read (or use) resources in a tenancy, it may do so. As with all rights grants, this involves two steps:
 
-    - Construct a dynamic group whose membership includes the function, for example:
+    - Construct a dynamic group whose membership includes the function, for example  `monitoring-func-dg`:
       ```text
-      ALL {resource.type = 'fnfunc', resource.compartment.name = 'example-compartment'}
+      ALL {resource.type = 'fnfunc', resource.compartment.id = '<ocid1.compartment1.id>'}
       ```
 
     - Add the rights to that dynamic group with a suitable policy, such as:
       ```text
-      allow dynamic-group fnfunc-example-compartment to read all-resources in compartment example-compartment
+      allow dynamic-group monitoring-func-dg to manage all-resources in <example-compartment>
       ```
 
    Once the dynamic group and policies are set, the function may then be deployed and invoked as usual.
