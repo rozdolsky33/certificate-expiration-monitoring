@@ -21,10 +21,32 @@ This document provides instructions to set up and run the `Certificate Expiratio
       Allow dynamic-group cert_monitor_group to use streams in tenancy
       ```
 
-4. **OCI SDK Configuration**:
+4. **Resource Principal Example**:
+   Resource principals offer credentials tied to specific OCI resources. Code running in the context of those resources may be granted the rights to act "as the resource".
+
+   The example code in this directory can be assembled into an OCI Functions container. If that function is given the permissions to read (or use) resources in a tenancy, it may do so. As with all rights grants, this involves two steps:
+
+    - Construct a dynamic group whose membership includes the function, for example:
+      ```text
+      ALL {resource.type = 'fnfunc', resource.compartment.name = 'example-compartment'}
+      ```
+
+    - Add the rights to that dynamic group with a suitable policy, such as:
+      ```text
+      allow dynamic-group fnfunc-example-compartment to read all-resources in compartment example-compartment
+      ```
+
+   Once the dynamic group and policies are set, the function may then be deployed and invoked as usual.
+
+   **References**:
+    - [General overview of OCI Functions](https://docs.oracle.com/en-us/iaas/Content/Functions/Concepts/functionsconcepts.htm)
+    - [Using Resource Principals from within OCI Functions](https://docs.oracle.com/en-us/iaas/Content/Functions/Tasks/functionsaccessingotherresources.htm)
+    - [Resource Principals OCI Functions Go Example](https://github.com/oracle/oci-go-sdk/tree/master/example/example_resource_principal_function)
+
+5. **OCI SDK Configuration**:
     - Ensure your OCI CLI or SDK configuration file is properly set up. The configuration file typically resides at `~/.oci/config`.
 
-5. **Environment Variables**:
+6. **Environment Variables**:
     - Create a `.env` file in the project root directory and populate it with the following variables:
       ```env
       ENDPOINT=<your_endpoint> # e.g., oracle.com:443
