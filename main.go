@@ -112,7 +112,7 @@ func loadEnvWithDefaults() {
 
 	// Set default values if environment variables are not present
 	setDefaultEnv("ENDPOINT", "oracle.com:443")
-	setDefaultEnv("COMPARTMENT_ID", "ocid1.tenancy.oc1..aaaaaaaaw7h6wpctybsgxgdngh64646ytsxr3zsjxoyie6nknexp72nmvmta")
+	setDefaultEnv("COMPARTMENT_ID", "ocid1.compartment.oc1..aaaaaaaayux4fy4c4laorh3ck7jvymwhc5bd4uav4sztmgwpplokgdrgro7a")
 	setDefaultEnv("NAMESPACE", "certificate_expiration_monitoring")
 	setDefaultEnv("METRIC_NAME", "CertificateExpiryDays")
 }
