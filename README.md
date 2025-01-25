@@ -6,28 +6,28 @@ This document provides instructions to set up and run the `Certificate Expiratio
 
 1. **OCI Tenancy**: Access to an Oracle Cloud Infrastructure tenancy with appropriate permissions.
 2. **Dynamic Group Setup**:
-    - Create a dynamic group (`Cert-MonitoringFunc-DG`) to include your function OCID:
+    - Create a dynamic group (`CertMonitoringFunc-DG`) to include your function OCID:
       ```text
-      ALL {resource.type = 'fnfunc', resource.compartment.id = '<ocid1.fnfunc.oc1>'}
+      ALL {resource.id = '<ocid1.fnfunc.oc1>'}
       ```
       
 3. **IAM Policies**:
-    - Add the following policies to enable your dynamic group (`Cert-MonitoringFunc-DG`) to access the necessary resources:
+    - Add the following policies to enable your dynamic group (`CertMonitoringFunc-DG`) to access the necessary resources:
       ```text
-      Allow dynamic-group Cert-MonitoringFunc-DG to use metrics in compartment <compartment_name> where target.metrics.namespace=certificate_expiration_monitoring
-      Allow dynamic-group Cert-MonitoringFunc-DG to read metrics in compartment <compartment_name>
-      Allow dynamic-group Cert-MonitoringFunc-DG to manage alarms in compartment <compartment_name>
-      Allow dynamic-group Cert-MonitoringFunc-DG to manage ons-topics in compartment <compartment_name>
-      Allow dynamic-group Cert-MonitoringFunc-DG to use streams in compartment <compartment_name>
+      Allow dynamic-group CertMonitoringFunc-DG to use metrics in compartment <compartment_name> where target.metrics.namespace=certificate_expiration_monitoring
+      Allow dynamic-group CertMonitoringFunc-DG to read metrics in compartment <compartment_name>
+      Allow dynamic-group CertMonitoringFunc-DG to manage alarms in compartment <compartment_name>
+      Allow dynamic-group CertMonitoringFunc-DG to manage ons-topics in compartment <compartment_name>
+      Allow dynamic-group CertMonitoringFunc-DG to use streams in compartment <compartment_name>
       ```
       or
       ```txt
        Allow dynamic-group <dynamic-group-name> to use metrics in compartment <compartment-name>
       ```
 
-4. **Resource Principal Example**:
+4. **Resource Principal Example** (Redundant):
+   
    Resource principals offer credentials tied to specific OCI resources. Code running in the context of those resources may be granted the rights to act "as the resource".
-
    The example code in this directory can be assembled into an OCI Functions container. If that function is given the permissions to read (or use) resources in a tenancy, it may do so. As with all rights grants, this involves two steps:
 
     - Construct a dynamic group whose membership includes the function, for example  `MonitoringFunc-DG`:
