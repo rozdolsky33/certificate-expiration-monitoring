@@ -6,24 +6,19 @@ This document provides instructions to set up and run the `Certificate Expiratio
 
 1. **OCI Tenancy**: Access to an Oracle Cloud Infrastructure tenancy with appropriate permissions.
 2. **Dynamic Group Setup**:
-    - Create a dynamic group (`Cert-Monitoring-DG`) to include your instance or application:
+    - Create a dynamic group (`Cert-MonitoringFunc-DG`) to include your function OCID:
       ```text
-      ANY {resource.id = '<ocid1.fnfunc.oc1.iad.aaaaaaaa>'}
+      ALL {resource.type = 'fnfunc', resource.compartment.id = '<ocid1.fnfunc.oc1>'}
       ```
-      or
-   
-      ```text
-      ALL {resource.type = 'fnfunc', compartment.id = '<compartment-ocid>'}
-      ```
-
+      
 3. **IAM Policies**:
-    - Add the following policies to enable your dynamic group (`Cert-Monitoring-DG`) to access the necessary resources:
+    - Add the following policies to enable your dynamic group (`Cert-MonitoringFunc-DG`) to access the necessary resources:
       ```text
-      Allow dynamic-group Cert-Monitoring-DG to use metrics in tenancy where target.metrics.namespace=certificate_expiration_monitoring
-      Allow dynamic-group Cert-Monitoring-DG to read metrics in tenancy
-      Allow dynamic-group Cert-Monitoring-DG to manage alarms in tenancy
-      Allow dynamic-group Cert-Monitoring-DG to manage ons-topics in tenancy
-      Allow dynamic-group Cert-Monitoring-DG to use streams in tenancy
+      Allow dynamic-group Cert-MonitoringFunc-DG to use metrics in compartment <compartment_name> where target.metrics.namespace=certificate_expiration_monitoring
+      Allow dynamic-group Cert-MonitoringFunc-DG to read metrics in compartment <compartment_name>
+      Allow dynamic-group Cert-MonitoringFunc-DG to manage alarms in compartment <compartment_name>
+      Allow dynamic-group Cert-MonitoringFunc-DG to manage ons-topics in compartment <compartment_name>
+      Allow dynamic-group Cert-MonitoringFunc-DG to use streams in compartment <compartment_name>
       ```
       or
       ```txt
@@ -38,13 +33,10 @@ This document provides instructions to set up and run the `Certificate Expiratio
     - Construct a dynamic group whose membership includes the function, for example  `MonitoringFunc-DG`:
       ```text
       ALL {resource.type = 'fnfunc', resource.compartment.id = '<ocid1.compartment1.id>'}
-      
-      ALL {resource.type = 'fnfunc', compartment.id = '<compartment-ocid>'}
       ```
-
     - Add the rights to that dynamic group with a suitable policy, such as:
       ```text
-      allow dynamic-group MonitoringFunc-DG to manage all-resources in <example-compartment>
+      Allow dynamic-group Cert-MonitoringFunc-DG to manage all-resources in <example-compartment>
       
       Allow dynamic-group <dynamic-group-name> to use metrics in compartment <compartment-name>
       ```
