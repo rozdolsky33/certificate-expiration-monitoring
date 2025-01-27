@@ -1,142 +1,86 @@
-# Certificate Expiration Monitoring
+# Certificate Expiration Monitoring Tool
 
-This document provides instructions to set up and run the `Certificate Expiration Monitoring` tool, which checks the number of days remaining until a certificate expires and publishes this data to Oracle Cloud Infrastructure (OCI) Monitoring.
+Monitor SSL certificate expiration and publish data to Oracle Cloud Infrastructure (OCI) Monitoring.
+
+## Overview
+
+This tool calculates the number of days remaining until an SSL certificate expires for a specified endpoint and publishes the metric to OCI Monitoring.
 
 ## Prerequisites
 
-1. **OCI Tenancy**: Access to an Oracle Cloud Infrastructure tenancy with appropriate permissions.
+To use this tool, ensure the following:
+
+1. **OCI Tenancy**: Access to an OCI tenancy with required permissions.
 2. **Dynamic Group Setup**:
-    - Create a dynamic group (`CertMonitoringFunc-DG`) to include your function OCID:
-      ```text
-      ALL {resource.id = '<ocid1.fnfunc.oc1>'}
-      ```
-      
+   - Create a dynamic group (`CertMonitoringFunc-DG`) including your function's OCID:
+     ```text
+     ALL {resource.id = '<ocid1.fnfunc.oc1>'}
+     ```
 3. **IAM Policies**:
-    - Add the following policies to enable your dynamic group (`CertMonitoringFunc-DG`) to access the necessary resources:
-      ```text
-      Allow dynamic-group CertMonitoringFunc-DG to manage metrics in compartment <compartment_name> 
-      
-      Allow dynamic-group CertMonitoringFunc-DG to read metrics in compartment <compartment_name>
-      Allow dynamic-group CertMonitoringFunc-DG to manage alarms in compartment <compartment_name>
-      Allow dynamic-group CertMonitoringFunc-DG to manage ons-topics in compartment <compartment_name>
-      Allow dynamic-group CertMonitoringFunc-DG to use streams in compartment <compartment_name>
-      
-      Allow dynamic-group CertMonitoringFunc-DG to inspect tenancies in compartment <compartment_name>
-      ``` 
+   - Add policies to enable the dynamic group to manage monitoring-related resources:
+     ```text
+     Allow dynamic-group CertMonitoringFunc-DG to manage metrics in compartment <compartment_name> 
+     Allow dynamic-group CertMonitoringFunc-DG to read functions-family in compartment <compartment_name>
+     ```
+4. **Environment Variables**:
+   - Configure the following variables for the function:
+     ```bash
+     ENDPOINT=<your_endpoint> # e.g., example.com:443
+     NAMESPACE=<namespace>   # e.g., certificate_expiration_monitoring
+     METRIC_NAME=<metric_name> # e.g., CertificateExpiryDays
+     ```
 
-4. **Resource Principal Example** (Redundant):
-   
-   Resource principals offer credentials tied to specific OCI resources. Code running in the context of those resources may be granted the rights to act "as the resource".
-   The example code in this directory can be assembled into an OCI Functions container. If that function is given the permissions to read (or use) resources in a tenancy, it may do so. As with all rights grants, this involves two steps:
+## Features
 
-    - Construct a dynamic group whose membership includes the function, for example  `MonitoringFunc-DG`:
-      ```text
-      ALL {resource.type = 'fnfunc', resource.compartment.id = '<ocid1.compartment1.id>'}
-      ```
-    - Add the rights to that dynamic group with a suitable policy, such as:
-      ```text
-      Allow dynamic-group Cert-MonitoringFunc-DG to manage all-resources in <example-compartment>
-      
-      Allow dynamic-group <dynamic-group-name> to use metrics in compartment <compartment-name>
-      ```
+- **SSL Certificate Monitoring**: Calculates the number of days until a certificate expires using the `GetDaysRemaining` function.
+- **OCI Monitoring Integration**: Publishes certificate expiration metrics using OCI Monitoring.
+- **Resource Principals**: Authenticates using OCI's Resource Principal for secure access to resources.
 
-   Once the dynamic group and policies are set, the function may then be deployed and invoked as usual.
+## Usage Instructions
 
-   **References**:
-    - [General overview of OCI Functions](https://docs.oracle.com/en-us/iaas/Content/Functions/Concepts/functionsconcepts.htm)
-    - [Using Resource Principals from within OCI Functions](https://docs.oracle.com/en-us/iaas/Content/Functions/Tasks/functionsaccessingotherresources.htm)
-    - [Resource Principals OCI Functions Go Example](https://github.com/oracle/oci-go-sdk/tree/master/example/example_resource_principal_function)
+### Local Deployment
 
-5. **OCI SDK Configuration**:
-    - Ensure your OCI CLI or SDK configuration file is properly set up. The configuration file typically resides at `~/.oci/config`.
-
-6. **Configure Environment Variables**:
-    - Under Function Resorce configure environments variables for your function endpoint and monitoring setup e.g metric name and namespace 
-      ```env
-      ENDPOINT=<your_endpoint> # e.g., oracle.com:443
-      NAMESPACE=certificate_expiration_monitoring
-      METRIC_NAME=CertificateExpiryDays
-      ```
-
-## Recent Updates
-
-The following features have been added:
-
-- **Certificate Expiry Check**: The `GetDaysRemaining` function calculates the SSL certificate expiry days for a given endpoint in the format `<hostname>:<port>`. It directly connects to the endpoint, retrieves the certificate, and computes the remaining days.
-- **OCI Monitoring Integration**: The `createMonitoringClient` function initializes a monitoring client using OCI's `ResourcePrincipalConfigurationProvider`.
-- **Automatic Metric Publishing**: The `publishMetricData` function now publishes metrics directly to the OCI Monitoring service, with specific dimensions like `resourceId`.
-
-## Setting Up the Application
-
-### Local Setup
-
-1. **Clone the Repository**:
+1. Clone the repository:
    ```bash
    git clone <repository_url>
    cd <repository_directory>
    ```
 
-2. **Set Up Go Environment**:
-    - Ensure you have Go 1.23 or later installed.
-    - Run the application locally:
-      ```bash
-      go run main.go
-      ```
+2. Ensure **Go 1.23+** is installed.
 
-### Run with Docker
+### Docker Deployment
 
-1. **Build the Docker Image**: (GENERIC_X86)
+1. Build the Docker image:
    ```bash
-    docker build --platform linux/amd64 -t region_code.ocir.io/namespace/certificate-exparation-monitoring:v0.0.0
-   e.g (docker build -t iad.ocir.io/idjgqqtt6zep/certificate-checker:v0.2.2 .)
+   docker build --platform=linux/amd64 -t <region_code>.ocir.io/<namespace>/certificate-check:v0.2.2 .
    ```
 
-2. **Trigger function locally**: 
+2. Test the function locally:
    ```bash
-   oci fn function invoke --function-id <ocid1.fnfunc.oc1.> --file "-" --body ""\n
+   oci fn function invoke --function-id <function_ocid> --body ""
    ```
 
-## Code Workflow
+Deployment to OCI can proceed after ensuring functionality.
 
-1. **Certificate Expiry Check**:
-    - The `GetDaysRemaining` function connects to the specified `endpoint` to retrieve the SSL certificate. It calculates and returns the number of days remaining until the certificate expires.
+## Workflow
 
-2. **OCI Monitoring Client**:
-    - The `createMonitoringClient` function prepares the client based on the default resource principal configuration for metric publishing.
+1. **Certificate Expiry Check**: The endpoint's certificate is retrieved, and the days remaining until expiration are calculated.
+2. **Metrics Client Initialization**: A monitoring client is prepared using `ResourcePrincipalConfigurationProvider`.
+3. **Metric Publishing**: Data is published to the specified namespace (`NAMESPACE`) in OCI Monitoring with the metric name (`METRIC_NAME`) and associated dimensions.
 
-3. **Publishing Metrics**:
-    - The `publishMetricData` function takes the calculated expiry days and ensures they are published to the specified namespace in OCI Monitoring. If any posting errors occur, the function returns detailed error logs.
-
-## Expected Metric Details in OCI
+## Metrics in OCI
 
 - **Metric Name**: `CertificateExpiryDays`
-- **Namespace**: `certificate_expiration_monitoring`
-- **Dimension**:
-    - **Key**: `resourceId` (to identify the specific endpoint).
+- **Namespace**: As specified by the `NAMESPACE` environment variable.
+- **Dimension**: Includes `resourceId`, identifying the monitored endpoint.
 
-## Debugging
+## Debugging and Best Practices
 
-- Common issues might be related to:
-    - Incorrect endpoint format (ensure `hostname:port` format)
-    - Missing or incorrect function variables configured 
-    - OCI policies not properly configured or propagated
-    - Resource principal misconfiguration for hosted environments
+- **Issues**:
+   - Verify correct format (e.g., `hostname:port`) for `ENDPOINT`.
+   - Ensure OCI policies are properly configured and propagated.
+   - Check logs for any environment or permission-related errors.
 
-- Check application logs to locate pinpointed errors. Enable verbose logging or debug mode if applicable.
-
-## Example Execution
-
-When executed successfully, the application will:
-1. Retrieve the SSL certificate expiry days for a given endpoint.
-2. Publish a metric (e.g., `CertificateExpiryDays`) to OCI Monitoring.
-
-Example success message:
-```text
-Successfully published metric 'CertificateExpiryDays' with value: 50
-```
-This indicates that the tool has successfully determined that the monitored endpoint certificate expires in 50 days, and the data is now available on the OCI Monitoring dashboard.
-
-## Additional Notes
-
-- Be cautious while enabling `InsecureSkipVerify` in TLS configuration for development.
-- Ensure your policies and OCI configurations are secure and valid before deploying the tool in any production-grade environment.
+- **Security**:
+   - Avoid using `InsecureSkipVerify` for production. Update TLS settings accordingly.
+   - Review IAM policies and ensure proper access control.
