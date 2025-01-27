@@ -77,8 +77,8 @@ func createMonitoringClient() (monitoring.MonitoringClient, error) {
 		return monitoring.MonitoringClient{}, fmt.Errorf("failed to create Resource Principal provider: %v", err)
 	}
 	region, _ := provider.Region()
-	log.Printf("Using Resource Principal provider: %s", provider)
 	client, err := monitoring.NewMonitoringClientWithConfigurationProvider(provider)
+
 	if err != nil {
 		return monitoring.MonitoringClient{}, fmt.Errorf("failed to create monitoring client: %v", err)
 	}
@@ -150,7 +150,7 @@ func main() {
 			log.Printf("Error creating monitoring client: %v", err)
 			return
 		}
-		log.Printf("Monitoring client created successfully: %v", client)
+		log.Println("Monitoring client created successfully")
 		err = publishMetricData(client, namespace, compartmentID, metricName, resourceID, float64(daysRemaining))
 		if err != nil {
 			fmt.Printf("Error publishing metric data: %v\n", err)
