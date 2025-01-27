@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/common/auth"
+	"github.com/oracle/oci-go-sdk/v65/functions"
 	"github.com/oracle/oci-go-sdk/v65/monitoring"
 	"io"
 	"log"
@@ -15,6 +16,39 @@ import (
 	"strings"
 	"time"
 )
+
+func getCompartmentID(ctx context.Context) (string, error) {
+	// Create a Resource Principal Configuration Provider
+	provider, err := auth.ResourcePrincipalConfigurationProvider()
+	if err != nil {
+		return "", fmt.Errorf("failed to create Resource Principal provider: %v", err)
+	}
+
+	// Initialize Functions Management Client
+	functionsClient, err := functions.NewFunctionsManagementClientWithConfigurationProvider(provider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create Functions Management client: %v", err)
+	}
+
+	// Get the Function OCID from the environment variable FN_FN_ID
+	functionOCID := os.Getenv("FN_FN_ID")
+	if functionOCID == "" {
+		return "", fmt.Errorf("FN_FN_ID is not set in the environment")
+	}
+
+	// Query the Function details
+	request := functions.GetFunctionRequest{
+		FunctionId: &functionOCID,
+	}
+
+	response, err := functionsClient.GetFunction(ctx, request)
+	if err != nil {
+		return "", fmt.Errorf("failed to get function details: %v", err)
+	}
+
+	// Retrieve the Compartment OCID
+	return *response.CompartmentId, nil
+}
 
 // GetDaysRemaining calculates the number of days remaining until the TLS certificate for the given endpoint expires.
 // endpoint specifies the target in the format "hostname:port".
@@ -148,6 +182,18 @@ func main() {
 		return
 	}
 	fdk.Handle(fdk.HandlerFunc(func(ctx context.Context, in io.Reader, out io.Writer) {
+
+		compID, err := getCompartmentID(ctx)
+		if err != nil {
+			log.Printf("Error retrieving compartment ID: %v", err)
+			fmt.Fprintln(out, "Error retrieving compartment ID")
+			return
+		}
+
+		// Output the compartment ID
+		log.Printf("Compartment ID: %s", compID)
+		fmt.Fprintf(out, "Compartment ID: %s\n", compID)
+
 		client, err := createMonitoringClient()
 		if err != nil {
 			log.Printf("Error creating monitoring client: %v", err)
