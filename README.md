@@ -14,16 +14,15 @@ This document provides instructions to set up and run the `Certificate Expiratio
 3. **IAM Policies**:
     - Add the following policies to enable your dynamic group (`CertMonitoringFunc-DG`) to access the necessary resources:
       ```text
-      Allow dynamic-group CertMonitoringFunc-DG to use metrics in compartment <compartment_name> where target.metrics.namespace=certificate_expiration_monitoring
+      Allow dynamic-group CertMonitoringFunc-DG to manage metrics in compartment <compartment_name> 
+      
       Allow dynamic-group CertMonitoringFunc-DG to read metrics in compartment <compartment_name>
       Allow dynamic-group CertMonitoringFunc-DG to manage alarms in compartment <compartment_name>
       Allow dynamic-group CertMonitoringFunc-DG to manage ons-topics in compartment <compartment_name>
       Allow dynamic-group CertMonitoringFunc-DG to use streams in compartment <compartment_name>
-      ```
-      or
-      ```txt
-       Allow dynamic-group <dynamic-group-name> to use metrics in compartment <compartment-name>
-      ```
+      
+      Allow dynamic-group CertMonitoringFunc-DG to inspect tenancies in compartment <compartment_name>
+      ``` 
 
 4. **Resource Principal Example** (Redundant):
    
@@ -51,11 +50,10 @@ This document provides instructions to set up and run the `Certificate Expiratio
 5. **OCI SDK Configuration**:
     - Ensure your OCI CLI or SDK configuration file is properly set up. The configuration file typically resides at `~/.oci/config`.
 
-6. **Environment Variables**:
-    - Create a `.env` file in the project root directory and populate it with the following variables:
+6. **Configure Environment Variables**:
+    - Under Function Resorce configure environments variables for your function endpoint and monitoring setup e.g metric name and namespace 
       ```env
       ENDPOINT=<your_endpoint> # e.g., oracle.com:443
-      COMPARTMENT_ID=<your_compartment_id>
       NAMESPACE=certificate_expiration_monitoring
       METRIC_NAME=CertificateExpiryDays
       ```
@@ -87,37 +85,26 @@ The following features have been added:
 
 ### Run with Docker
 
-1. **Build the Docker Image**:
+1. **Build the Docker Image**: (GENERIC_X86)
    ```bash
-   docker build -t certificate-checker .
+    docker build --platform linux/amd64 -t region_code.ocir.io/namespace/certificate-exparation-monitoring:v0.0.0
+   e.g (docker build -t iad.ocir.io/idjgqqtt6zep/certificate-checker:v0.2.2 .)
    ```
 
-2. **Run the Docker Container**:
+2. **Trigger function locally**: 
    ```bash
-   docker run --rm -e OCI_CONFIG_FILE=/path/to/oci/config -v /your/oci/config:/home/appuser/.oci certificate-checker
+   oci fn function invoke --function-id <ocid1.fnfunc.oc1.> --file "-" --body ""\n
    ```
-
-### Environment Variables
-
-- Ensure a `.env` file is included in the application directory. This file gets automatically loaded during runtime.
-- Key variables required:
-    - `ENDPOINT`: The endpoint to check, e.g., `hostname:443`.
-    - `COMPARTMENT_ID`: OCI Compartment OCID where metrics will be published.
-    - `NAMESPACE`: Target namespace for metrics.
-    - `METRIC_NAME`: Custom name for the monitored metric, default is `CertificateExpiryDays`.
 
 ## Code Workflow
 
-1. **Environment Variables Handling**:
-    - The application initializes by loading environment variables from the `.env` file using the `godotenv` package. Missing or invalid variables result in a fatal error.
-
-2. **Certificate Expiry Check**:
+1. **Certificate Expiry Check**:
     - The `GetDaysRemaining` function connects to the specified `endpoint` to retrieve the SSL certificate. It calculates and returns the number of days remaining until the certificate expires.
 
-3. **OCI Monitoring Client**:
+2. **OCI Monitoring Client**:
     - The `createMonitoringClient` function prepares the client based on the default resource principal configuration for metric publishing.
 
-4. **Publishing Metrics**:
+3. **Publishing Metrics**:
     - The `publishMetricData` function takes the calculated expiry days and ensures they are published to the specified namespace in OCI Monitoring. If any posting errors occur, the function returns detailed error logs.
 
 ## Expected Metric Details in OCI
@@ -131,7 +118,7 @@ The following features have been added:
 
 - Common issues might be related to:
     - Incorrect endpoint format (ensure `hostname:port` format)
-    - Missing or incorrect `.env` variables
+    - Missing or incorrect function variables configured 
     - OCI policies not properly configured or propagated
     - Resource principal misconfiguration for hosted environments
 
