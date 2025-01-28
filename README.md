@@ -11,30 +11,41 @@ This tool calculates the number of days remaining until an SSL certificate expir
 To use this tool, ensure the following:
 
 1. **OCI Tenancy**: Access to an OCI tenancy with required permissions.
-2. **Dynamic Group Setup**:
+2. **Resource Creation**: Before proceeding with group creation and policies, you must first create the required resource (e.g., an OCI Function or a Resource Scheduler) and obtain its OCID.
+3. **Dynamic Group Setup**:
    - Create a dynamic group (`CertMonitoringFunc-DG`) including your function's OCID:
      ```text
      ALL {resource.id = '<ocid1.fnfunc.oc1>'}
      ```
-3. **IAM Policies**:
+   - Create dynamic group (`ResourceScheduler-DG`) including your resource scheduler OCID:
+     ```text
+       ALL {resource.type='resourceschedule', resource.id ='ocid1.resourceschedule.oc1>'}
+     ```
+4. **IAM Policies**:
    - Add policies to enable the dynamic group to manage monitoring-related resources:
      ```text
      Allow dynamic-group CertMonitoringFunc-DG to manage metrics in compartment <compartment_name> 
      Allow dynamic-group CertMonitoringFunc-DG to read functions-family in compartment <compartment_name>
      ```
-4. **Environment Variables**:
+   - Add a policy to enable the dynamic group to trigger OCI function
+     ```text
+     Allow dynamic-group ResourceScheduler-DG to manage functions-family in compartment <compartment_name>
+     ```
+5. **Environment Variables**:
    - Configure the following variables for the function:
      ```bash
      ENDPOINT=<your_endpoint> # e.g., example.com:443
      NAMESPACE=<namespace>   # e.g., certificate_expiration_monitoring
      METRIC_NAME=<metric_name> # e.g., CertificateExpiryDays
      ```
+6. **View Custom Metrics**: After the function runs for the first time and pushes custom metrics to Monitoring, you can view the results in the Metrics Explorer by selecting the relevant `Compartment`, `Metric Namespace`, and `Metric Name`. 
+7. **Create Alarms**: As the next step, create an appropriate alarm to monitor the custom metrics and configure the delivery method, such as email, to receive notifications.
 
 ## Features
 
-- **SSL Certificate Monitoring**: Calculates the number of days until a certificate expires using the `GetDaysRemaining` function.
-- **OCI Monitoring Integration**: Publishes certificate expiration metrics using OCI Monitoring.
-- **Resource Principals**: Authenticates using OCI's Resource Principal for secure access to resources.
+- **SSL Certificate Monitoring**: Automatically calculates the number of days remaining until an SSL certificate expires using the `GetDaysRemaining` function, ensuring proactive tracking of certificate validity.
+- **OCI Monitoring Integration**: Seamlessly publishes certificate expiration metrics to OCI Monitoring, enabling real-time visibility and analysis of SSL certificate health.
+- **Resource Principals Authentications**: Leverages OCI Resource Principals for secure, hassle-free authentication, allowing the function to access and interact with OCI resources without requiring explicit credentials.
 
 ## Usage Instructions
 
