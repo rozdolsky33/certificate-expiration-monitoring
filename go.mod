@@ -3,6 +3,7 @@ module certificate-expiration-monitoring
 go 1.23.4
 
 require (
+	github.com/fnproject/fdk-go v0.0.51
 	github.com/joho/godotenv v1.5.1
 	github.com/oracle/oci-go-sdk/v65 v65.81.2
 )
