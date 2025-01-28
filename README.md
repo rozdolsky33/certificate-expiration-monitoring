@@ -63,7 +63,7 @@ To use this tool, ensure the following:
 
 1. Build the Docker image:
    ```bash
-   docker build --platform=linux/amd64 -t <region_code>.ocir.io/<namespace>/certificate-check:v0.2.2 .
+   docker build --platform=linux/amd64 -t <region_code>.ocir.io/<namespace>/certificate-check:v1.0.0 .
    ```
 
 2. Test the function locally:
