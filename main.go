@@ -18,63 +18,57 @@ import (
 	"time"
 )
 
-// getCompartmentID retrieves the OCI Compartment ID associated with the current Function context.
-func getCompartmentID(ctx context.Context) (string, error) {
-	provider, err := auth.ResourcePrincipalConfigurationProvider()
-	if err != nil {
-		return "", fmt.Errorf("failed to create Resource Principal provider: %v", err)
-	}
-	functionsClient, err := functions.NewFunctionsManagementClientWithConfigurationProvider(provider)
-	if err != nil {
-		return "", fmt.Errorf("failed to create Functions Management client: %v", err)
-	}
-
-	functionOCID := os.Getenv("FN_FN_ID")
-	if functionOCID == "" {
-		return "", fmt.Errorf("FN_FN_ID is not set in the environment")
-	}
-
-	request := functions.GetFunctionRequest{
-		FunctionId: &functionOCID,
-	}
-	response, err := functionsClient.GetFunction(ctx, request)
-	if err != nil {
-		return "", fmt.Errorf("failed to get function details: %v", err)
-	}
-
-	return *response.CompartmentId, nil
+type Result struct {
+	Endpoint      string
+	DaysRemaining int
+	Err           error
 }
 
-// GetDaysRemaining calculates the days remaining for an endpoint until its TLS certificate expires.
-func GetDaysRemaining(ctx context.Context, endpoint string) (int, error) {
-	parts := strings.Split(endpoint, ":")
-	if len(parts) != 2 {
-		return 0, fmt.Errorf("invalid endpoint format, expected hostname:port")
-	}
+// GetDaysRemaining calculates the days remaining for an endpoint until its TLS certificate expires using a Result struct.
+func GetDaysRemaining(ctx context.Context, endpoint string) Result {
+	resultChan := make(chan Result, 1)
 
-	// TLS Dial with timeout
-	conn, err := tls.DialWithDialer(&net.Dialer{
-		Timeout: 5 * time.Second, // Timeout for connection
-	}, "tcp", endpoint, &tls.Config{
-		InsecureSkipVerify: true,
-	})
-	if err != nil {
-		return 0, fmt.Errorf("failed to connect to '%s': %v", endpoint, err)
-	}
-	defer conn.Close()
+	// Perform TLS operations in a Goroutine
+	go func() {
+		parts := strings.Split(endpoint, ":")
+		if len(parts) != 2 {
+			resultChan <- Result{Endpoint: endpoint, Err: fmt.Errorf("invalid endpoint format, expected hostname:port")}
+			return
+		}
 
-	certs := conn.ConnectionState().PeerCertificates
-	if len(certs) == 0 {
-		return 0, fmt.Errorf("no certificate found for endpoint '%s'", endpoint)
-	}
-	cert := certs[0]
+		conn, err := tls.DialWithDialer(&net.Dialer{
+			Timeout: 10 * time.Second, // add a TLS dial timeout
+		}, "tcp", endpoint, &tls.Config{
+			InsecureSkipVerify: true,
+		})
+		if err != nil {
+			resultChan <- Result{Endpoint: endpoint, Err: fmt.Errorf("failed to connect to '%s': %v", endpoint, err)}
+			return
+		}
+		defer conn.Close()
 
-	// Calculate days remaining until certificate expiration
-	daysRemaining := int(time.Until(cert.NotAfter).Hours() / 24)
-	return daysRemaining, nil
+		certs := conn.ConnectionState().PeerCertificates
+		if len(certs) == 0 {
+			resultChan <- Result{Endpoint: endpoint, Err: fmt.Errorf("no certificate found for endpoint '%s'", endpoint)}
+			return
+		}
+
+		cert := certs[0]
+		daysRemaining := int(time.Until(cert.NotAfter).Hours() / 24)
+		resultChan <- Result{Endpoint: endpoint, DaysRemaining: daysRemaining}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return Result{
+			Endpoint: endpoint,
+			Err:      fmt.Errorf("timeout while processing endpoint '%s'", endpoint),
+		}
+	case result := <-resultChan:
+		return result
+	}
 }
 
-// createMonitoringClient initializes and returns an OCI MonitoringClient using a Resource Principal configuration provider.
 func createMonitoringClient() (monitoring.MonitoringClient, error) {
 	provider, err := auth.ResourcePrincipalConfigurationProvider()
 	if err != nil {
@@ -90,7 +84,6 @@ func createMonitoringClient() (monitoring.MonitoringClient, error) {
 	return client, nil
 }
 
-// publishMetricData sends metric data to the OCI Monitoring service for the given resource.
 func publishMetricData(client monitoring.MonitoringClient, namespace, compartmentID, metricName, resourceID string, value float64) error {
 	timestamp := common.SDKTime{Time: time.Now().UTC()}
 	metricData := monitoring.MetricDataDetails{
@@ -125,76 +118,102 @@ func publishMetricData(client monitoring.MonitoringClient, namespace, compartmen
 	return nil
 }
 
+func getCompartmentID(ctx context.Context) (string, error) {
+	provider, err := auth.ResourcePrincipalConfigurationProvider()
+	if err != nil {
+		return "", fmt.Errorf("failed to create Resource Principal provider: %v", err)
+	}
+	functionsClient, err := functions.NewFunctionsManagementClientWithConfigurationProvider(provider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create Functions Management client: %v", err)
+	}
+
+	functionOCID := os.Getenv("FN_FN_ID")
+	if functionOCID == "" {
+		return "", fmt.Errorf("FN_FN_ID is not set in the environment")
+	}
+
+	request := functions.GetFunctionRequest{
+		FunctionId: &functionOCID,
+	}
+	response, err := functionsClient.GetFunction(ctx, request)
+	if err != nil {
+		return "", fmt.Errorf("failed to get function details: %v", err)
+	}
+
+	return *response.CompartmentId, nil
+}
+
 func main() {
 	fdk.Handle(fdk.HandlerFunc(func(ctx context.Context, in io.Reader, out io.Writer) {
-		endpoints := os.Getenv("ENDPOINT")
+		// Read environment variables
+		endpoints := os.Getenv("ENDPOINTS")
 		namespace := os.Getenv("NAMESPACE")
 		metricName := os.Getenv("METRIC_NAME")
 
 		if endpoints == "" || namespace == "" || metricName == "" {
 			log.Fatalf("One or more required environment variables are missing (ENDPOINT, NAMESPACE, METRIC_NAME)")
-			return
 		}
 
+		// Initialize OCI monitoring client
 		client, err := createMonitoringClient()
 		if err != nil {
 			log.Printf("Failed to create monitoring client: %v", err)
 			return
 		}
 
+		// Retrieve compartment ID (OCI context dependency)
 		compartmentID, err := getCompartmentID(ctx)
 		if err != nil {
 			log.Printf("Failed to retrieve compartment ID: %v", err)
 			return
 		}
 
+		// Split endpoints into a slice
 		endpointList := strings.Split(endpoints, ",")
-		for i, endpoint := range endpointList {
-			if !strings.Contains(endpoint, ":") {
-				endpointList[i] = endpoint + ":443" // Default to port 443
-			}
-		}
-
+		results := make(chan Result, len(endpointList)) // Channel to collect results
 		var wg sync.WaitGroup
-		results := make(chan string, len(endpointList)) // Channel to collect results
 
-		// Process each endpoint concurrently with timeout
+		// Process each endpoint concurrently
 		for _, endpoint := range endpointList {
+			if !strings.Contains(endpoint, ":") {
+				endpoint = endpoint + ":443" // Ensure default port 443
+			}
+
 			wg.Add(1)
 			go func(endpoint string) {
 				defer wg.Done()
 
-				// Set up timeout context for each endpoint
+				// Set up timeout context per endpoint
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 
-				daysRemaining, err := GetDaysRemaining(ctx, endpoint)
-				if err != nil {
-					results <- fmt.Sprintf("Error for %s: %v", endpoint, err)
-					return
-				}
-
-				// Publish the metric to Monitoring
-				err = publishMetricData(client, namespace, compartmentID, metricName, endpoint, float64(daysRemaining))
-				if err != nil {
-					results <- fmt.Sprintf("Error publishing metric for %s: %v", endpoint, err)
-					return
-				}
-
-				results <- fmt.Sprintf("Successfully processed '%s' with %d days remaining", endpoint, daysRemaining)
+				// Get days remaining and send the Result to the channel
+				result := GetDaysRemaining(ctx, endpoint)
+				results <- result
 			}(endpoint)
 		}
 
-		// Wait for all goroutines to finish
+		// Close results channel after all workers finish
 		go func() {
 			wg.Wait()
 			close(results)
 		}()
 
-		// Write results to the FDK output
+		// Collect and log results
 		for result := range results {
-			log.Println(result)
-			_, _ = fmt.Fprintln(out, result)
+			if result.Err != nil {
+				log.Printf("Failed to process endpoint: %s, Error: %v", result.Endpoint, result.Err)
+				_, _ = fmt.Fprintf(out, "Failed to process endpoint: %s, Error: %v\n", result.Endpoint, result.Err)
+			} else {
+				log.Printf("Days remaining for %s: %d days", result.Endpoint, result.DaysRemaining)
+				_, _ = fmt.Fprintf(out, "Successfully processed endpoint: %s, Days Remaining: %d\n", result.Endpoint, result.DaysRemaining)
+				// Optionally publish the metric
+				err = publishMetricData(client, namespace, compartmentID, metricName, result.Endpoint, float64(result.DaysRemaining))
+				if err != nil {
+					log.Printf("Failed to publish metric for %s: %v", result.Endpoint, err)
+				}
+			}
 		}
 	}))
 }
