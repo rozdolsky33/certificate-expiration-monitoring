@@ -215,7 +215,6 @@ func main() {
 			} else {
 				log.Printf("Days remaining for %s: %d days", result.Endpoint, result.DaysRemaining)
 				_, _ = fmt.Fprintf(out, "Successfully processed endpoint: %s, Days Remaining: %d\n", result.Endpoint, result.DaysRemaining)
-				// Optionally publish the metric
 				err = publishMetricData(client, namespace, compartmentID, metricName, result.Endpoint, float64(result.DaysRemaining))
 				if err != nil {
 					log.Printf("Failed to publish metric for %s: %v", result.Endpoint, err)

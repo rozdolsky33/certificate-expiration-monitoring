@@ -1,4 +1,4 @@
-# Certificate Expiration Monitoring Tool
+# Certificate Expiration Monitoring OCI Function
 
 Monitor SSL certificate expiration and publish data to Oracle Cloud Infrastructure (OCI) Monitoring.
 
@@ -8,48 +8,56 @@ This tool calculates the number of days remaining until an SSL certificate expir
 
 ## Prerequisites
 
-To use this tool, ensure the following:
-
 1. **OCI Tenancy**: Access to an OCI tenancy with required permissions.
-2. **Resource Creation**: Before proceeding with group creation and policies, you must first create the required resource (e.g., an OCI Function or a Resource Scheduler) and obtain its OCID.
+   - Resource Creation: Before proceeding with group creation and policies, you must first create the required resource (e.g., an OCI Function or a Resource Scheduler) and obtain its OCID.
+2. **OCI Function Creation**:
+    - Deploy the function using OCI's Functions service.
+    - Obtain the function's OCID.
 3. **Dynamic Group Setup**:
-   - Create a dynamic group (`CertMonitoringFunc-DG`) including your function's OCID:
-     ```text
-     ALL {resource.id = '<ocid1.fnfunc.oc1>'}
-     ```
-   - Create dynamic group (`ResourceScheduler-DG`) including your resource scheduler OCID:
-     ```text
-       ALL {resource.type='resourceschedule', resource.id ='ocid1.resourceschedule.oc1>'}
-     ```
+    - Create a dynamic group (`CertMonitoringFunc-DG`) to include your function's OCID:
+      ```text
+      ANY {resource.id = '<ocid1.fnfunc.oc1...>'}
+      ```
+    - Create dynamic group (`ResourceScheduler-DG`) including your resource scheduler OCID:
+      ```text
+      ALL {resource.type='resourceschedule', resource.id ='ocid1.resourceschedule.oc1>'}
+      ```
 4. **IAM Policies**:
-   - Add policies to enable the dynamic group to manage monitoring-related resources:
-     ```text
-     Allow dynamic-group CertMonitoringFunc-DG to manage metrics in compartment <compartment_name> 
-     Allow dynamic-group CertMonitoringFunc-DG to read functions-family in compartment <compartment_name>
-     ```
+    - Grant permissions to the dynamic group:
+      ```text
+      Allow dynamic-group CertMonitoringFunc-DG to manage metrics in compartment <compartment_name>
+      Allow dynamic-group CertMonitoringFunc-DG to read functions-family in compartment <compartment_name>
+      ```
    - Add a policy to enable the dynamic group to trigger OCI function
-     ```text
-     Allow dynamic-group ResourceScheduler-DG to manage functions-family in compartment <compartment_name>
-     ```
+      ```text
+      Allow dynamic-group ResourceScheduler-DG to manage functions-family in compartment <compartment_name>
+      ```
 5. **Environment Variables**:
-   - Configure the following variables for the function:
-     ```bash
-     ENDPOINT=<your_endpoint> # e.g., example.com:443
-     NAMESPACE=<namespace>   # e.g., certificate_expiration_monitoring
-     METRIC_NAME=<metric_name> # e.g., CertificateExpiryDays
-     ```
-6. **View Custom Metrics**: After the function runs for the first time and pushes custom metrics to Monitoring, you can view the results in the Metrics Explorer by selecting the relevant `Compartment`, `Metric Namespace`, and `Metric Name`. 
+    - Configure the following variables for the function:
+        - `ENDPOINTS`: A comma-separated list of endpoints (e.g., `example.com,service.com`).
+        - `NAMESPACE`: The custom namespace for OCI Monitoring metrics (e.g., `CertificateMonitoring`).
+        - `METRIC_NAME`: The name of the metric to be published (e.g., `CertificateExpiryDays`).
+
+6. **View Custom Metrics**: After the function runs for the first time and pushes custom metrics to Monitoring, you can view the results in the Metrics Explorer by selecting the relevant `Compartment`, `Metric Namespace`, and `Metric Name`.
 7. **Create Alarms**: As the next step, create an appropriate alarm to monitor the custom metrics and configure the delivery method, such as email, to receive notifications.
 
 ## Features
 
-- **SSL Certificate Monitoring**: Automatically calculates the number of days remaining until an SSL certificate expires using the `GetDaysRemaining` function, ensuring proactive tracking of certificate validity.
-- **OCI Monitoring Integration**: Seamlessly publishes certificate expiration metrics to OCI Monitoring, enabling real-time visibility and analysis of SSL certificate health.
-- **Resource Principals Authentications**: Leverages OCI Resource Principals for secure, hassle-free authentication, allowing the function to access and interact with OCI resources without requiring explicit credentials.
+- **SSL Certificate Monitoring**:
+    - Checks the number of days remaining until the SSL certificate expires for specified endpoints.
+    - Ensures proactive monitoring to avoid service disruption.
+- **OCI Monitoring Integration**:
+    - Publishes custom metrics to OCI Monitoring for real-time analysis.
+- **Concurrent Processing**:
+    - Processes multiple endpoints in parallel to improve efficiency.
+- **Timeout Handling**:
+    - Uses context-based timeout to prevent long-running operations on unresponsive endpoints.
+- **Metrics Publication**:
+    - Publishes the metric data for each endpoint's certificate expiration.
 
 ## Usage Instructions
 
-### Local Deployment
+### Local Deployment (For Testing)
 
 1. Clone the repository:
    ```bash
@@ -59,39 +67,65 @@ To use this tool, ensure the following:
 
 2. Ensure **Go 1.23+** is installed.
 
-### Docker Deployment
-
-1. Build the Docker image:
+3. Set environment variables:
    ```bash
-   docker build --platform=linux/amd64 -t <region_code>.ocir.io/<namespace>/certificate-check:v1.0.0 .
+   export ENDPOINTS=example.com,service.com
+   export NAMESPACE=CertificateMonitoring
+   export METRIC_NAME=CertificateExpiryDays
    ```
 
-2. Test the function locally:
+4. Execute the function locally:
+   ```bash
+   go run main.go
+   ```
+
+### OCI Function Deployment
+
+1. Build and deploy with Docker:
+   ```bash
+   docker build --platform=linux/amd64 -t <region_code>.ocir.io/<namespace>/certificate-check:v1.0.0 .
+   docker push <region_code>.ocir.io/<namespace>/certificate-check:v1.0.0
+   ```
+
+2. Deploy the function to OCI Functions:
+    - Specify the Docker image (`<region_code>.ocir.io/<namespace>/certificate-check:v1.0.0`) in the function configuration.
+
+3. Invoke the function:
    ```bash
    oci fn function invoke --function-id <function_ocid> --body ""
    ```
 
-Deployment to OCI can proceed after ensuring functionality.
-
 ## Workflow
 
-1. **Certificate Expiry Check**: The endpoint's certificate is retrieved, and the days remaining until expiration are calculated.
-2. **Metrics Client Initialization**: A monitoring client is prepared using `ResourcePrincipalConfigurationProvider`.
-3. **Metric Publishing**: Data is published to the specified namespace (`NAMESPACE`) in OCI Monitoring with the metric name (`METRIC_NAME`) and associated dimensions.
+1. **Endpoint Certificate Check**:
+    - The function connects to each endpoint over TLS/SSL.
+    - It retrieves the SSL certificate and calculates the days remaining until expiration.
+2. **Metrics Client Initialization**:
+    - A monitoring client is initialized using OCI's `ResourcePrincipalConfigurationProvider`.
+3. **Metric Publishing**:
+    - Metrics, including the number of days remaining for each endpoint's certificate expiry, are optionally published to OCI Monitoring.
+4. **Logs and Results**:
+    - Logs provide a summary of successful and failed operations, including any errors encountered.
 
 ## Metrics in OCI
 
-- **Metric Name**: `CertificateExpiryDays`
-- **Namespace**: As specified by the `NAMESPACE` environment variable.
-- **Dimension**: Includes `resourceId`, identifying the monitored endpoint.
+- **Metric Name**: `CertificateExpiryDays` (or specified via the `METRIC_NAME` environment variable).
+- **Namespace**: As specified by the `NAMESPACE` environment variable (e.g., `CertificateMonitoring`).
+- **Dimensions**:
+    - Each metric includes the `resourceId` dimension, identifying the monitored endpoint.
 
-## Debugging and Best Practices
+## Debugging and Error Handling
 
-- **Issues**:
-   - Verify correct format (e.g., `hostname:port`) for `ENDPOINT`.
-   - Ensure OCI policies are properly configured and propagated.
-   - Check logs for any environment or permission-related errors.
+- **Common Issues**:
+    - Ensure `ENDPOINTS` are in the correct format (`hostname1,hostaname2,hostname3`).
+    - Confirm IAM policies are properly configured and propagated.
+    - Check OCI Function logs for environment variable or permission errors.
+
+- **Timeouts and Errors**:
+    - If a timeout occurs or the endpoint returns an error, results and logs will indicate the failure:
+      ```text
+      Failed to process endpoint: <endpoint>, Error: <error_message>
+      ```
 
 - **Security**:
-   - Avoid using `InsecureSkipVerify` for production. Update TLS settings accordingly.
-   - Review IAM policies and ensure proper access control.
+    - Avoid using `InsecureSkipVerify` for production deployments. Update the TLS configuration accordingly.
