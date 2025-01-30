@@ -1,4 +1,4 @@
-# Certificate Expiration Monitoring OCI Function
+# Certificate Expiration Monitoring with OCI Function
 
 Monitor SSL certificate expiration and publish data to Oracle Cloud Infrastructure (OCI) Monitoring.
 
