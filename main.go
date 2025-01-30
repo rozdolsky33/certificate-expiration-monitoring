@@ -18,13 +18,17 @@ import (
 	"time"
 )
 
+// Result represents the outcome of a TLS certificate analysis for a specific endpoint.
+// It includes the endpoint's address, the number of days remaining until the certificate expires, and any error encountered.
 type Result struct {
 	Endpoint      string
 	DaysRemaining int
 	Err           error
 }
 
-// GetDaysRemaining calculates the days remaining for an endpoint until its TLS certificate expires using a Result struct.
+// GetDaysRemaining retrieves the number of days remaining until the expiration of the TLS certificate of a given endpoint.
+// It performs a TLS handshake with the endpoint and calculates the difference between the current time and the certificate's expiry date.
+// Returns a Result containing the endpoint, days remaining until certificate expiration, or an error if the operation fails.
 func GetDaysRemaining(ctx context.Context, endpoint string) Result {
 	resultChan := make(chan Result, 1)
 
@@ -69,6 +73,7 @@ func GetDaysRemaining(ctx context.Context, endpoint string) Result {
 	}
 }
 
+// createMonitoringClient initializes and returns an OCI MonitoringClient using a Resource Principal configuration provider.
 func createMonitoringClient() (monitoring.MonitoringClient, error) {
 	provider, err := auth.ResourcePrincipalConfigurationProvider()
 	if err != nil {
@@ -84,6 +89,7 @@ func createMonitoringClient() (monitoring.MonitoringClient, error) {
 	return client, nil
 }
 
+// publishMetricData sends metric data to the OCI Monitoring service using the provided MonitoringClient instance.
 func publishMetricData(client monitoring.MonitoringClient, namespace, compartmentID, metricName, resourceID string, value float64) error {
 	timestamp := common.SDKTime{Time: time.Now().UTC()}
 	metricData := monitoring.MetricDataDetails{
@@ -118,6 +124,7 @@ func publishMetricData(client monitoring.MonitoringClient, namespace, compartmen
 	return nil
 }
 
+// getCompartmentID retrieves the compartment ID of the current function using OCI Resource Principal credentials.
 func getCompartmentID(ctx context.Context) (string, error) {
 	provider, err := auth.ResourcePrincipalConfigurationProvider()
 	if err != nil {
