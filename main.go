@@ -192,7 +192,7 @@ func main() {
 				defer wg.Done()
 
 				// Set up timeout context per endpoint
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 				defer cancel()
 
 				// Get days remaining and send the Result to the channel
