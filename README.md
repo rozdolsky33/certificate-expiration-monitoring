@@ -48,12 +48,22 @@ This OCI Function calculates the number of days remaining until an SSL certifica
 - **SSL Certificate Monitoring**:
     - Checks the number of days remaining until the SSL certificate expires for specified endpoints.
     - Ensures proactive monitoring to avoid service disruption.
+- Logs with timestamps and **error categories** for better debugging.
+- Errors are clearly classified into:
+    - **Connection failures**
+    - **TLS handshake issues**
+    - **Certificate retrieval failures**
 - **OCI Monitoring Integration**:
     - Publishes custom metrics to OCI Monitoring for real-time analysis.
+- **Retry Mechanism**:
+    - Uses exponential backoff with jitter to improve reliability.
+    - If a TLS handshake fails, the function retries **up to 3 times** with increasing wait times.
 - **Concurrent Processing**:
     - Processes multiple endpoints in parallel to improve efficiency.
 - **Timeout Handling**:
     - Uses context-based timeout to prevent long-running operations on unresponsive endpoints.
+- **Graceful Handling of Partial Failures**
+    - Even if some endpoints fail, the function **continues processing other endpoints**.
 - **Metrics Publication**:
     - Publishes the metric data for each endpoint's certificate expiration.
 
