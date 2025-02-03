@@ -6,7 +6,7 @@ Monitor SSL certificate expiration and publish data to Oracle Cloud Infrastructu
 
 This OCI Function calculates the number of days remaining until an SSL certificate expires for a specified endpoint and publishes the metric to OCI Monitoring.
 
-![Architecture Diagram](./assets/ArchitecturalDiagram.jpg)
+![Architecture Diagram](./assets/ArchitecturalDiagramV2.jpg)
 
 ## Prerequisites
 
